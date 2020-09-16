@@ -1,0 +1,110 @@
+# clone darknet repo
+!git clone https://github.com/AlexeyAB/darknet
+
+# change makefile to have GPU and OPENCV enabled
+%cd darknet
+!sed -i ’s/OPENCV=0/OPENCV=1/’ Makefile
+!sed -i ’s/GPU=0/GPU=1/’ Makefile
+!sed -i ’s/CUDNN=0/CUDNN=1/’ Makefile
+
+# verify CUDA
+!/usr/local/cuda/bin/nvcc –version
+
+# make darknet (build)
+!make
+
+# get yolov3 pretrained coco dataset weights
+!wget https://pjreddie.com/media/files/yolov3.weights
+
+# define helper functions
+def imShow(path):
+import cv2
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+image = cv2.imread(path)
+height, width = image.shape[:2]
+resized image = cv2.resize(image,(3×width, 3×height), interpolation = cv2.INTER CUBIC)
+
+fig = plt.gcf()
+fig.set size inches(18, 10)
+plt.axis(”off”)
+plt.imshow(cv2.cvtColor(resized image, cv2.COLOR BGR2RGB))
+plt.show()
+
+# use this to upload files
+def upload():
+from google.colab import files
+uploaded = files.upload()
+for name, data in uploaded.items():
+with open(name, ’wb’) as f:
+f.write(data)
+print (’saved file’, name)
+
+# use this to download a file
+def download(path):
+from google.colab import files
+files.download(path)
+
+# run darknet detection
+!./darknet detect cfg/yolov3.cfg yolov3.weights data/person.jpg
+
+# show image using our helper function
+imShow(’predictions.jpg’)
+
+# look we can run another detection!
+!./darknet detect cfg/yolov3.cfg yolov3.weights data/dog.jpg
+imShow(’predictions.jpg’)
+
+%cd ..
+from google.colab import drive
+drive.mount(’/content/gdrive’)
+
+# this creates a symbolic link so that now the path /content/gdrive/My Drive/
+is equal to /mydrive
+!ln -s /content/gdrive/My Drive/ /mydrive
+!ls /mydrive
+
+# this is where my zip is stored (I created a yolov3 folder where I will get my
+required files from)
+!ls /mydrive/yolov3
+
+# copy the .zip file into the root directory of cloud VM
+!cp /mydrive/yolov3/obj.zip ../
+
+# unzip the zip file and its contents should now be in /darknet/data/obj
+!unzip ../obj.zip -d data/
+
+# upload the custom .cfg back to cloud VM from Google Drive
+!cp /mydrive/yolov3/yolov3 custom.cfg ./cfg
+
+# upload the custom .cfg back to cloud VM from local machine (uncomment to
+use)
+#%cd cfg
+#upload()
+#%cd ..
+
+# upload the obj.names and obj.data files to cloud VM from Google Drive
+!cp /mydrive/yolov3/obj.names ./data
+!cp /mydrive/yolov3/obj.data ./data
+
+# upload the obj.names and obj.data files to cloud VM from local machine (uncomment to use)
+#%cd data
+#upload()
+#%cd ..
+
+# verify train.txt can be seen in our darknet/data folder
+
+!ls data/
+
+# upload pretrained convolutional layer weights
+!wget http://pjreddie.com/media/files/darknet53.conv.74
+
+# train your custom detector
+!./darknet detector train data/obj.data cfg/yolov3 custom.cfg darknet53.conv.74-dont show
+
+# run your custom detector with this command (upload an image to your google
+drive to test, thresh flag sets accuracy that detection must be in order to show it)
+!./darknet detector test data/obj.data cfg/yolov3 custom.cfg /mydrive/yolov3/backup/yolov3 custom last.weights
+/mydrive/images/safari.jpg -thresh 0.3
+imShow(’predictions.jpg’)
